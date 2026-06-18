@@ -9,11 +9,10 @@ import datetime
 # ==============================================================================
 st.set_page_config(
     layout="wide", 
-    page_title="mango 67 phonk", 
+    page_title="Aviation Custom Radar", 
     page_icon="✈️"
 )
 
-# Initialize Session State variables to prevent data from wiping on rerun
 if "active_flights" not in st.session_state:
     st.session_state.active_flights = []
 if "scan_performed" not in st.session_state:
@@ -45,10 +44,9 @@ HEAVIES_DB = {
 }
 
 # ==============================================================================
-# 3. SEED LIVERY DICTIONARY (Initial Setup Data)
+# 3. SEED LIVERY DICTIONARY (Initial Built-in Special Liveries)
 # ==============================================================================
 SEED_LIVERIES_DB = {
-    # --- CHINA EASTERN AIRLINES & CHINA CARGO ---
     "B-5943": "China Eastern Airlines Airbus A330-200 - eastday.com",
     "B-6452": "China Eastern Airlines Airbus A319 - Magnificent Qinghai",
     "B-6458": "China Eastern Airlines Airbus A319 - Magnificent Qinghai",
@@ -234,18 +232,34 @@ SEED_LIVERIES_DB = {
 }
 
 # ==============================================================================
-# 4. STORAGE FILE PERSISTENCE ENGINE
+# 4. STORAGE PERSISTENCE ENGINE (Separating Custom Watchlist vs Specials)
 # ==============================================================================
 JSON_FILE = "saved_liveries.json"
+
+# Schema structure migration helper
 if not os.path.exists(JSON_FILE):
+    initial_structure = {
+        "specials": SEED_LIVERIES_DB,
+        "watchlist": {}
+    }
     with open(JSON_FILE, "w", encoding="utf-8") as f:
-        json.dump(SEED_LIVERIES_DB, f, indent=4)
+        json.dump(initial_structure, f, indent=4)
 
 with open(JSON_FILE, "r", encoding="utf-8") as f:
-    LIVE_LIVERIES_DATABASE = json.load(f)
+    STORAGE_DATA = json.load(f)
+
+# Backward-compatibility defense fix if migrating from the old schema style
+if "watchlist" not in STORAGE_DATA or "specials" not in STORAGE_DATA:
+    STORAGE_DATA = {
+        "specials": SEED_LIVERIES_DB,
+        "watchlist": STORAGE_DATA if isinstance(STORAGE_DATA, dict) and "specials" not in STORAGE_DATA else {}
+    }
+
+WATCHLIST_DB = STORAGE_DATA.get("watchlist", {})
+SPECIALS_DB = STORAGE_DATA.get("specials", {})
 
 # ==============================================================================
-# 5. SIDEBAR TRAFFIC FILTER & PERSISTENT SUBMIT OPERATIONS
+# 5. SIDEBAR DESIGN (Includes Live Watchlist Registry View)
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
@@ -258,32 +272,38 @@ with st.sidebar:
         submitted = st.form_submit_button("Add to Watchlist")
         
         if submitted:
-            # FIXED: Only Registration is mandatory now!
             if new_reg:
-                # If notes are empty, fill with a default fallback tag
-                final_desc = new_desc if new_desc else "Custom Watchlist Entry"
+                final_desc = new_desc if new_desc else "Custom Watchlist Tracked Target"
+                WATCHLIST_DB[new_reg] = final_desc
                 
-                LIVE_LIVERIES_DATABASE[new_reg] = final_desc
+                # Resave payload
+                STORAGE_DATA["watchlist"] = WATCHLIST_DB
                 with open(JSON_FILE, "w", encoding="utf-8") as f:
-                    json.dump(LIVE_LIVERIES_DATABASE, f, indent=4)
-                st.toast(f"✅ Added {new_reg} to watchlist!", icon="✈️")
+                    json.dump(STORAGE_DATA, f, indent=4)
+                st.toast(f"🚨 {new_reg} locked onto Watchlist!", icon="🎯")
                 st.rerun()
             else:
-                st.error("Registration field is required.")
+                st.error("Registration is required.")
 
-    st.success(f"Database Operational: {len(LIVE_LIVERIES_DATABASE)} entries actively monitored.")
-    
+    # NEW: Live UI View directly showing current items on Watchlist
+    st.markdown("#### 📋 Current Watchlist Active Targets")
+    if WATCHLIST_DB:
+        for r, d in WATCHLIST_DB.items():
+            st.markdown(f"- **`{r}`**: *{d}*")
+    else:
+        st.caption("No custom airframes currently tracked on the sidebar watchlist.")
+
     st.markdown("---")
     traffic_view = st.radio(
         "Show Traffic Selection:",
-        options=["All Movements", "Heavies / Watchlist / Specials Only"],
+        options=["All Movements", "Watchlist / Heavies / Specials Only"],
         index=0
     )
 
 # ==============================================================================
 # 6. CORE LAYOUT INPUT HUB
 # ==============================================================================
-st.title("only works @ hkg")
+st.title("✈️ Global Live Spotting Radar Dashboard")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -294,10 +314,9 @@ with col2:
 operation_focus = st.radio("Operation Focus", options=["Arrivals", "Departures"], horizontal=True)
 
 # ==============================================================================
-# 7. PIPELINE RUNTIME SCRAPER (Saves directly to Session State)
+# 7. PIPELINE RUNTIME SCRAPER
 # ==============================================================================
 if st.button("Scan Current Movements"):
-    
     unix_timestamp = int(datetime.datetime.combine(spotting_date, datetime.time.min).timestamp())
     
     DATA_FEED_URL = (
@@ -319,10 +338,7 @@ if st.button("Scan Current Movements"):
         
         schedule_data = raw_json.get("result", {}).get("response", {}).get("airport", {}).get("pluginData", {}).get("schedule", {})
         if schedule_data:
-            fetched_flights = schedule_data.get("arrivals", {}).get("data", []) if operation_focus.lower() == "arrivals" else schedule_data.get("departures", {}).get("data", [])
-            
-            # Save raw matches into session state so it persists across sidebar actions
-            st.session_state.active_flights = fetched_flights
+            st.session_state.active_flights = schedule_data.get("arrivals", {}).get("data", []) if operation_focus.lower() == "arrivals" else schedule_data.get("departures", {}).get("data", [])
             st.session_state.scan_performed = True
         else:
             st.session_state.active_flights = []
@@ -335,9 +351,10 @@ if st.button("Scan Current Movements"):
         st.session_state.scan_performed = True
 
 # ==============================================================================
-# 8. MULTI-CATEGORY SORTING ENGINE (Processes cached Session State flights)
+# 8. NEW STRUCTURAL SORTING LAYER (Watchlists vs Specials vs Heavies)
 # ==============================================================================
 if st.session_state.scan_performed:
+    watchlist_matches = []
     specials_list = []
     heavies_list = []
     boring_list = []
@@ -345,23 +362,20 @@ if st.session_state.scan_performed:
     for item in st.session_state.active_flights:
         if not item:
             continue
-        f = item.get("flight", {})
-        if not f:
-            f = {}
+        f = item.get("flight", {}) or {}
         
         flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
         
-        aircraft_info = f.get("aircraft", {}) if f.get("aircraft") else {}
+        aircraft_info = f.get("aircraft", {}) or {}
         reg = aircraft_info.get("registration", "UNKNOWN").upper()
         aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
         
-        airline_dict = f.get("airline", {})
-        if airline_dict is None:
-            airline_dict = {}
+        airline_dict = f.get("airline", {}) or {}
         airline_name = airline_dict.get("name", "Unknown Operator")
         
-        # Pull dynamically from the updated file-persisted map
-        special_desc = LIVE_LIVERIES_DATABASE.get(reg, None)
+        # Priority check: 1st Watchlist, 2nd Special Livery, 3rd Heavy Engine Type
+        watchlist_desc = WATCHLIST_DB.get(reg, None)
+        special_desc = SPECIALS_DB.get(reg, None)
         heavy_desc = HEAVIES_DB.get(aircraft_code, None)
         
         flight_object = {
@@ -369,11 +383,14 @@ if st.session_state.scan_performed:
             "airline": airline_name,
             "reg": reg,
             "type": aircraft_code,
+            "watchlist_desc": watchlist_desc,
             "special_desc": special_desc,
             "heavy_desc": heavy_desc
         }
         
-        if special_desc:
+        if watchlist_desc:
+            watchlist_matches.append(flight_object)
+        elif special_desc:
             specials_list.append(flight_object)
         elif heavy_desc:
             heavies_list.append(flight_object)
@@ -382,31 +399,34 @@ if st.session_state.scan_performed:
                 boring_list.append(flight_object)
 
     # ==============================================================================
-    # 9. LAYOUT RENDERING VIEWS
+    # 9. MAIN OUTPUT LANE RENDERER
     # ==============================================================================
-    def render_flight_cards(flights, category_title, emoji, bubble_type="info"):
+    def render_flight_cards(flights, category_title, emoji, alert_type="info"):
         st.markdown(f"## {emoji} {category_title} ({len(flights)})")
         if not flights:
-            st.markdown("*No movements tracked inside this category matrix.*")
+            st.markdown("*No movements tracked inside this category lane.*")
             return
             
         for fl in flights:
             card_text = f"**{fl['flight_no']}** ({fl['airline']}) | Reg: **{fl['reg']}** | Type: **{fl['type']}**"
             
-            if fl['special_desc']:
-                card_text += f"\n\n🚨 **MATCHED SPECIAL LIVERY:** `{fl['special_desc']}`"
+            if alert_type == "error":
+                card_text += f"\n\n🚨 **WATCHLIST AIRFRAME TARGET INBOUND:** `{fl['watchlist_desc']}`"
+                st.error(card_text)
+            elif alert_type == "info":
+                card_text += f"\n\n🎨 **SPECIAL LIVERY MATCH:** `{fl['special_desc']}`"
                 st.info(card_text)
+            elif alert_type == "success":
+                card_text += f"\n\n✈️ **Heavy Widebody:** `{fl['heavy_desc']}`"
+                st.success(card_text)
             else:
-                if fl['heavy_desc']:
-                    card_text += f"\n\n✈️ **Heavy Widebody:** `{fl['heavy_desc']}`"
-                    st.success(card_text)
-                else:
-                    card_text += f"\n\n🔹 *Standard Scheme Framework*"
-                    st.warning(card_text)
+                card_text += f"\n\n🔹 *Standard Framework Frame*"
+                st.warning(card_text)
 
-    # Output Rendering
-    render_flight_cards(specials_list, "specially cool plens", "🎨", bubble_type="info")
-    render_flight_cards(heavies_list, "big plen", "⭐", bubble_type="success")
+    # Priority Ordering display lanes
+    render_flight_cards(watchlist_matches, "watchlist plens", "🚨", alert_type="error")
+    render_flight_cards(specials_list, "specially cool plens", "🎨", alert_type="info")
+    render_flight_cards(heavies_list, "big plen", "⭐", alert_type="success")
     
     if traffic_view == "All Movements":
-        render_flight_cards(boring_list, "boring plen", "⚙️", bubble_type="warning")
+        render_flight_cards(boring_list, "boring plen", "⚙️", alert_type="warning")
