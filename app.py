@@ -230,7 +230,7 @@ with st.sidebar:
 # ==============================================================================
 # 5. CORE LAYOUT INPUT HUB
 # ==============================================================================
-st.title("✈️ Global Live Spotting Radar Dashboard")
+st.title("✈️ plane tracking thing - only works for HKG")
 
 col1, col2 = st.columns(2)
 with col1:
