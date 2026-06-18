@@ -259,7 +259,7 @@ WATCHLIST_DB = STORAGE_DATA.get("watchlist", {})
 SPECIALS_DB = STORAGE_DATA.get("specials", {})
 
 # ==============================================================================
-# 5. SIDEBAR DESIGN (Includes Add & NEW Remove Custom Target Engines)
+# 5. SIDEBAR DESIGN
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
@@ -283,14 +283,14 @@ with st.sidebar:
             else:
                 st.error("Registration is required.")
 
-    # --- NEW FORM B: REMOVE TARGET ---
+    # --- FIXED FORM B: REMOVE TARGET ---
     if WATCHLIST_DB:
         st.markdown("#### ❌ Remove From Watchlist")
         with st.form("remove_form"):
+            # Removed format_func so only the raw, clean registration drops down
             remove_selection = st.selectbox(
                 "Select target to drop:",
-                options=list(WATCHLIST_DB.keys()),
-                format_func=lambda x: f"{x} ({WATCHLIST_DB[x]})"
+                options=list(WATCHLIST_DB.keys())
             )
             remove_submitted = st.form_submit_button("Delete Registration")
             
