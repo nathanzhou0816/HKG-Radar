@@ -25,7 +25,7 @@ def keep_app_alive(url, interval_seconds=3600):
         time.sleep(interval_seconds)
 
 # Replace this with your actual deployed Streamlit URL once you hit "Deploy"
-YOUR_APP_URL = "https://your-app-name.streamlit.app" 
+YOUR_APP_URL = "https://radar-hkg.streamlit.app/" 
 
 # Start the keep-alive background worker only once per app boot
 if "ping_thread_started" not in st.session_state:
