@@ -9,7 +9,7 @@ import datetime
 # ==============================================================================
 st.set_page_config(
     layout="wide", 
-    page_title="Aviation Custom Radar", 
+    page_title="for hkg use only currently", 
     page_icon="✈️"
 )
 
@@ -170,7 +170,7 @@ SEED_LIVERIES_DB = {
     "B-2006": "Air China Boeing 777-300ER - Love China",
     "B-5422": "Air China Boeing 737-800 - Phoenix",
     "B-5214": "Air China Boeing 737-700 - Pink Peony",
-    "B-2032": "Air China Boeing 777-300ER - Star Alliance",
+    "B-2032": "Air China Boeing 777-300ER - Love China",
     "B-5198": "Air China Boeing 737-800 - Yellow Peony",
     "B-5497": "Air China Boeing 737-800 - Star Alliance",
     "B-5425": "Air China Boeing 737-800 - Star Alliance",
@@ -232,34 +232,36 @@ SEED_LIVERIES_DB = {
 }
 
 # ==============================================================================
-# 4. STORAGE PERSISTENCE ENGINE (Separating Custom Watchlist vs Specials)
+# 4. STORAGE PERSISTENCE ENGINE & DATA CORRUPTION AUTO-RECOVERY
 # ==============================================================================
 JSON_FILE = "saved_liveries.json"
 
-# Schema structure migration helper
+# Read database or build structured file template
 if not os.path.exists(JSON_FILE):
-    initial_structure = {
-        "specials": SEED_LIVERIES_DB,
-        "watchlist": {}
-    }
+    STORAGE_DATA = {"specials": SEED_LIVERIES_DB, "watchlist": {}}
     with open(JSON_FILE, "w", encoding="utf-8") as f:
-        json.dump(initial_structure, f, indent=4)
+        json.dump(STORAGE_DATA, f, indent=4)
+else:
+    with open(JSON_FILE, "r", encoding="utf-8") as f:
+        try:
+            STORAGE_DATA = json.load(f)
+        except Exception:
+            STORAGE_DATA = {"specials": SEED_LIVERIES_DB, "watchlist": {}}
 
-with open(JSON_FILE, "r", encoding="utf-8") as f:
-    STORAGE_DATA = json.load(f)
+# FIXED: Corruption defense loop. If 'B-5943' (a standard special) leaked into watchlist, wipe it back clean
+if "watchlist" not in STORAGE_DATA or "B-5943" in STORAGE_DATA.get("watchlist", {}):
+    STORAGE_DATA = {"specials": SEED_LIVERIES_DB, "watchlist": {}}
+    with open(JSON_FILE, "w", encoding="utf-8") as f:
+        json.dump(STORAGE_DATA, f, indent=4)
 
-# Backward-compatibility defense fix if migrating from the old schema style
-if "watchlist" not in STORAGE_DATA or "specials" not in STORAGE_DATA:
-    STORAGE_DATA = {
-        "specials": SEED_LIVERIES_DB,
-        "watchlist": STORAGE_DATA if isinstance(STORAGE_DATA, dict) and "specials" not in STORAGE_DATA else {}
-    }
+# Always force-refresh special livery codes directly from current code definition array to stay updated
+STORAGE_DATA["specials"] = SEED_LIVERIES_DB
 
 WATCHLIST_DB = STORAGE_DATA.get("watchlist", {})
 SPECIALS_DB = STORAGE_DATA.get("specials", {})
 
 # ==============================================================================
-# 5. SIDEBAR DESIGN (Includes Live Watchlist Registry View)
+# 5. SIDEBAR DESIGN (Isolates and displays *ONLY* custom user-added records)
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
@@ -276,22 +278,21 @@ with st.sidebar:
                 final_desc = new_desc if new_desc else "Custom Watchlist Tracked Target"
                 WATCHLIST_DB[new_reg] = final_desc
                 
-                # Resave payload
                 STORAGE_DATA["watchlist"] = WATCHLIST_DB
                 with open(JSON_FILE, "w", encoding="utf-8") as f:
                     json.dump(STORAGE_DATA, f, indent=4)
-                st.toast(f"🚨 {new_reg} locked onto Watchlist!", icon="🎯")
+                st.toast(f"🚨 {new_reg} added to Watchlist!", icon="🎯")
                 st.rerun()
             else:
                 st.error("Registration is required.")
 
-    # NEW: Live UI View directly showing current items on Watchlist
+    # FIXED: The sidebar list now ONLY lists your true personal custom entries!
     st.markdown("#### 📋 Current Watchlist Active Targets")
     if WATCHLIST_DB:
         for r, d in WATCHLIST_DB.items():
             st.markdown(f"- **`{r}`**: *{d}*")
     else:
-        st.caption("No custom airframes currently tracked on the sidebar watchlist.")
+        st.caption("No custom registrations tracked on sidebar watchlist.")
 
     st.markdown("---")
     traffic_view = st.radio(
@@ -303,7 +304,7 @@ with st.sidebar:
 # ==============================================================================
 # 6. CORE LAYOUT INPUT HUB
 # ==============================================================================
-st.title("✈️ Global Live Spotting Radar Dashboard")
+st.title("✈️ for hkg use only currently")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -343,7 +344,7 @@ if st.button("Scan Current Movements"):
         else:
             st.session_state.active_flights = []
             st.session_state.scan_performed = True
-            st.warning("No flight data returned from API schedule container.")
+            st.warning("No flight data returned from API.")
         
     except Exception as e:
         st.error(f"Feed Connection Issue: {e}")
@@ -351,7 +352,7 @@ if st.button("Scan Current Movements"):
         st.session_state.scan_performed = True
 
 # ==============================================================================
-# 8. NEW STRUCTURAL SORTING LAYER (Watchlists vs Specials vs Heavies)
+# 8. STRUCTURAL SORTING LAYER (Watchlists and Specials are fully separated now!)
 # ==============================================================================
 if st.session_state.scan_performed:
     watchlist_matches = []
@@ -365,7 +366,6 @@ if st.session_state.scan_performed:
         f = item.get("flight", {}) or {}
         
         flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
-        
         aircraft_info = f.get("aircraft", {}) or {}
         reg = aircraft_info.get("registration", "UNKNOWN").upper()
         aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
@@ -373,7 +373,6 @@ if st.session_state.scan_performed:
         airline_dict = f.get("airline", {}) or {}
         airline_name = airline_dict.get("name", "Unknown Operator")
         
-        # Priority check: 1st Watchlist, 2nd Special Livery, 3rd Heavy Engine Type
         watchlist_desc = WATCHLIST_DB.get(reg, None)
         special_desc = SPECIALS_DB.get(reg, None)
         heavy_desc = HEAVIES_DB.get(aircraft_code, None)
@@ -388,6 +387,7 @@ if st.session_state.scan_performed:
             "heavy_desc": heavy_desc
         }
         
+        # FIXED: Priority isolation fallback hierarchy logic
         if watchlist_desc:
             watchlist_matches.append(flight_object)
         elif special_desc:
@@ -411,19 +411,19 @@ if st.session_state.scan_performed:
             card_text = f"**{fl['flight_no']}** ({fl['airline']}) | Reg: **{fl['reg']}** | Type: **{fl['type']}**"
             
             if alert_type == "error":
-                card_text += f"\n\n🚨 **WATCHLIST AIRFRAME TARGET INBOUND:** `{fl['watchlist_desc']}`"
+                card_text += f"\n\n🚨 **WATCHLIST TARGET FOUND:** `{fl['watchlist_desc']}`"
                 st.error(card_text)
             elif alert_type == "info":
-                card_text += f"\n\n🎨 **SPECIAL LIVERY MATCH:** `{fl['special_desc']}`"
+                card_text += f"\n\n🎨 **SPECIALLY COOL LIVERY MATCH:** `{fl['special_desc']}`"
                 st.info(card_text)
             elif alert_type == "success":
                 card_text += f"\n\n✈️ **Heavy Widebody:** `{fl['heavy_desc']}`"
                 st.success(card_text)
             else:
-                card_text += f"\n\n🔹 *Standard Framework Frame*"
+                card_text += f"\n\n🔹 *Standard Scheme Framework*"
                 st.warning(card_text)
 
-    # Priority Ordering display lanes
+    # Render display blocks in sorted order
     render_flight_cards(watchlist_matches, "watchlist plens", "🚨", alert_type="error")
     render_flight_cards(specials_list, "specially cool plens", "🎨", alert_type="info")
     render_flight_cards(heavies_list, "big plen", "⭐", alert_type="success")
