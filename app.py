@@ -286,13 +286,18 @@ if st.button("Scan Current Movements"):
     ]
 
     for item in active_flights:
-        f = item.get("flight", {})
+        # 🛡️ FIX: Use an empty fallback dictionary if 'flight' is missing or None
+        f = item.get("flight", {}) or {}
+        
         flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
         
         aircraft_info = f.get("aircraft", {}) or {}
         reg = aircraft_info.get("registration", "UNKNOWN").upper()
         aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
-        airline_name = f.get("airline", {}).get("name", "Unknown Operator")
+        
+        # 🛡️ FIX: Safely parse airline dictionary context
+        airline_dict = f.get("airline", {}) or {}
+        airline_name = airline_dict.get("name", "Unknown Operator")
         
         # Look up across our 162-item asset rules dictionary
         special_desc = LIVE_LIVERIES_DATABASE.get(reg, None)
