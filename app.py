@@ -4,14 +4,18 @@ import json
 import os
 import datetime
 
-# 1. GLOBAL PAGE CONFIGURATION (Must be the first Streamlit command!)
+# ==============================================================================
+# 1. GLOBAL PAGE CONFIGURATION (Must be the absolute first Streamlit command)
+# ==============================================================================
 st.set_page_config(
     layout="wide", 
     page_title="Aviation Custom Radar", 
     page_icon="✈️"
 )
 
-# 2. EXACT MASTER LIVERY DICTIONARY (Strictly from index data)
+# ==============================================================================
+# 2. COMPLETE MASTER LIVERY DICTIONARY (162 Strict Aircraft Records)
+# ==============================================================================
 SPECIAL_LIVERIES_DB = {
     # --- CHINA EASTERN AIRLINES & CHINA CARGO ---
     "B-5943": "China Eastern Airlines Airbus A330-200 - eastday.com",
@@ -198,17 +202,21 @@ SPECIAL_LIVERIES_DB = {
     "JA339J": "Japan Airlines Boeing 737-800 - Tokyo DisneySea - Sparkling Jubilee"
 }
 
-# 3. SELF-INITIALIZING DISK FALLBACK DATABASE
+# ==============================================================================
+# 3. SELF-INITIALIZING DISK STORAGE SYSTEM
+# ==============================================================================
 JSON_FILE = "saved_liveries.json"
 if not os.path.exists(JSON_FILE):
     with open(JSON_FILE, "w", encoding="utf-8") as f:
         json.dump(SPECIAL_LIVERIES_DB, f, indent=4)
 
-# Load database into runtime memory
+# Load current active database into operational memory
 with open(JSON_FILE, "r", encoding="utf-8") as f:
     LIVE_LIVERIES_DATABASE = json.load(f)
 
-# 4. SIDEBAR MANAGEMENT PANEL
+# ==============================================================================
+# 4. SIDEBAR CONFIGURATION INTERFACE
+# ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
     st.success(f"Database Operational: {len(LIVE_LIVERIES_DATABASE)} airframes actively loaded.")
@@ -220,7 +228,9 @@ with st.sidebar:
         index=0
     )
 
-# 5. MAIN HUB DISPLAY LAYOUT
+# ==============================================================================
+# 5. USER MAIN HUB VIEW CONTROLS
+# ==============================================================================
 st.title("✈️ Global Live Spotting Radar Dashboard")
 
 col1, col2 = st.columns(2)
@@ -231,27 +241,71 @@ with col2:
 
 operation_focus = st.radio("Operation Focus", options=["Arrivals", "Departures"], horizontal=True)
 
+# ==============================================================================
+# 6. SCANNING PIPELINE LOOP EXECUTION
+# ==============================================================================
 if st.button("Scan Current Movements"):
-    # 6. TIME BOUNDARY EXPANSION FOR FULL-DAY VIEWING
-    # Converts selected date into unix limits (00:00:00 AM to 11:59:59 PM)
+    # Calculate exact start and end unix boundaries for the entire selected day
     day_start = int(datetime.datetime.combine(spotting_date, datetime.time.min).timestamp())
     day_end = int(datetime.datetime.combine(spotting_date, datetime.time.max).timestamp())
     
-    # 7. EXTERNAL SYSTEM API CALL ENGINE
-    # Replace with your primary endpoint URL
-    API_ENDPOINT = "https://api.fr24.com/live/movements" 
-    
+    # Target live execution API endpoint parameters
+    API_URL = "https://api.fr24.com/live/movements" 
     query_parameters = {
         "airport": airport_code,
         "mode": operation_focus.lower(),
         "from": day_start,
         "to": day_end,
-        "limit": 350  # Bumping this limit up forces the API to return the entire day
+        "limit": 350  # Forces the API to extract data for the entire day's block
     }
     
-    # Simple simulation loop logic (replace this block with your actual requests parsing setup)
+    # Query live endpoint
+    try:
+        response = requests.get(API_URL, params=query_parameters, timeout=10)
+        flights_data = response.json()
+        active_flights = flights_data.get("flights", [])
+    except Exception as e:
+        st.error(f"API Connection Failure: {e}")
+        active_flights = []
+
+    # ==============================================================================
+    # 7. LAYOUT RENDERING LOOPS
+    # ==============================================================================
     st.markdown("### 🎨 Live Special/Watchlist Matches")
     st.info("Scanning completed across expanded 24-hour schedules.")
     
-    # Your standard loop here checks logs:
-    # livery_desc = LIVE_LIVERIES_DATABASE.get(flight_registration.upper(), None)
+    if not active_flights:
+        st.warning("No flights detected inside this schedule block.")
+    else:
+        for f in active_flights:
+            reg = f.get('registration', 'UNKNOWN').upper()
+            aircraft_code = f.get('aircraft_code', 'UNKN')
+            flight_no = f.get('flight_no', 'N/A')
+            airline_name = f.get('airline', 'Unknown Airline')
+            
+            # Cross-reference the registration string against our 162 database entries
+            special_desc = LIVE_LIVERIES_DATABASE.get(reg, None)
+            
+            # Determine rendering visibility based on sidebar traffic filters
+            should_display = True
+            if traffic_view == "Heavies / Watchlist / Specials Only":
+                is_heavy = aircraft_code.upper() in [
+                    "A332", "A333", "A343", "A346", "A359", "A35K", "A388", 
+                    "B772", "B773", "B77W", "B788", "B789", "B78X", "B744", "B748"
+                ]
+                if not special_desc and not is_heavy:
+                    should_display = False
+            
+            # Render structured layout blocks
+            if should_display:
+                with st.container():
+                    col_img, col_info = st.columns([1, 4])
+                    with col_img:
+                        st.caption("📷 No Photo")
+                    with col_info:
+                        st.markdown(f"### **{flight_no}** ({f.get('operator_iata', 'HKG')}) | Reg: `{reg}` | Type: **{aircraft_code}**")
+                        if special_desc:
+                            st.markdown(f"🎨 **Special Scheme:** `{special_desc}`")
+                        else:
+                            st.markdown("🔹 *Standard Scheme Framework*")
+                    st.markdown("---")
