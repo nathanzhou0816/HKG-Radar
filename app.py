@@ -9,14 +9,14 @@ import datetime
 # ==============================================================================
 st.set_page_config(
     layout="wide", 
-    page_title="mango phonk", 
+    page_title="67 mango phonk", 
     page_icon="✈️"
 )
 
 # ==============================================================================
-# 2. MASTER LIVERY DICTIONARY (162 Strict Aircraft Records)
+# 2. SEED LIVERY DICTIONARY (Initial Setup Data)
 # ==============================================================================
-SPECIAL_LIVERIES_DB = {
+SEED_LIVERIES_DB = {
     # --- CHINA EASTERN AIRLINES & CHINA CARGO ---
     "B-5943": "China Eastern Airlines Airbus A330-200 - eastday.com",
     "B-6452": "China Eastern Airlines Airbus A319 - Magnificent Qinghai",
@@ -203,34 +203,51 @@ SPECIAL_LIVERIES_DB = {
 }
 
 # ==============================================================================
-# 3. STORAGE LIFECYCLE MANAGEMENT
+# 3. STORAGE FILE PERSISTENCE ENGINE
 # ==============================================================================
 JSON_FILE = "saved_liveries.json"
 if not os.path.exists(JSON_FILE):
     with open(JSON_FILE, "w", encoding="utf-8") as f:
-        json.dump(SPECIAL_LIVERIES_DB, f, indent=4)
+        json.dump(SEED_LIVERIES_DB, f, indent=4)
 
 with open(JSON_FILE, "r", encoding="utf-8") as f:
     LIVE_LIVERIES_DATABASE = json.load(f)
 
 # ==============================================================================
-# 4. SIDEBAR TRAFFIC FILTER
+# 4. SIDEBAR TRAFFIC FILTER & WATCHLIST ENTRY FORMS
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
-    st.success(f"Database Operational: {len(LIVE_LIVERIES_DATABASE)} airframes actively loaded.")
+    
+    # NEW: Interactive text boxes to input custom registrations to the Watchlist
+    st.markdown("#### ➕ Add Registration to Watchlist")
+    with st.form("watchlist_form", clear_on_submit=True):
+        new_reg = st.text_input("Registration (e.g., B-18055):").upper().strip()
+        new_desc = st.text_input("Livery Notes (e.g., China Airlines - Zootopia 2):").strip()
+        submitted = st.form_submit_with_button("Add to Watchlist")
+        
+        if submitted:
+            if new_reg and new_desc:
+                LIVE_LIVERIES_DATABASE[new_reg] = new_desc
+                with open(JSON_FILE, "w", encoding="utf-8") as f:
+                    json.dump(LIVE_LIVERIES_DATABASE, f, indent=4)
+                st.toast(f"✅ Added {new_reg} to watchlist!", icon="✈️")
+            else:
+                st.error("Please fill in both fields.")
+
+    st.success(f"Database Operational: {len(LIVE_LIVERIES_DATABASE)} entries actively monitored.")
     
     st.markdown("---")
     traffic_view = st.radio(
         "Show Traffic Selection:",
-        options=["All Movements", "Heavies / Watchlist / Specials Only"],
+        options=["All Movements", "Watchlist / Specials Only"],
         index=0
     )
 
 # ==============================================================================
 # 5. CORE LAYOUT INPUT HUB
 # ==============================================================================
-st.title("✈️ onllly works for hkg now")
+st.title("only work for hkg")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -272,16 +289,10 @@ if st.button("Scan Current Movements"):
         active_flights = []
 
     # ==============================================================================
-    # 7. MULTI-CATEGORY SORTING ENGINE
+    # 7. CATEGORY SORTING ENGINE (Disregarded heavy split logic)
     # ==============================================================================
     specials_list = []
-    heavies_list = []
     boring_list = []
-    
-    HEAVY_TYPES = [
-        "A332", "A333", "A343", "A346", "A359", "A35K", "A388", 
-        "B772", "B773", "B77W", "B788", "B789", "B78X", "B744", "B748", "74F"
-    ]
 
     for item in active_flights:
         f = item.get("flight", {}) or {}
@@ -307,8 +318,6 @@ if st.button("Scan Current Movements"):
         
         if special_desc:
             specials_list.append(flight_object)
-        elif aircraft_code in HEAVY_TYPES:
-            heavies_list.append(flight_object)
         else:
             if traffic_view == "All Movements":
                 boring_list.append(flight_object)
@@ -325,27 +334,18 @@ if st.button("Scan Current Movements"):
         for fl in flights:
             card_text = f"**{fl['flight_no']}** ({fl['airline']}) | Reg: **{fl['reg']}** | Type: **{fl['type']}**"
             
-            # Watchlist/Special rendering logic
             if fl['special_desc']:
                 card_text += f"\n\n🚨 **WATCHLIST ALERT / MATCHED SPECIAL LIVERY:** `{fl['special_desc']}`"
-                st.error(card_text) # Hard red alert box for items in your custom database
+                st.error(card_text)  # Custom Red Watchlist Bubble
             else:
-                if fl['type'] in HEAVY_TYPES:
-                    card_text += f"\n\n✈️ *Heavy Widebody Configuration*"
-                else:
-                    card_text += f"\n\n🔹 *Standard Scheme Frame*"
-                
-                # Render using the normal color-coded styles
-                if bubble_type == "success":
-                    st.success(card_text)
-                elif bubble_type == "warning":
+                card_text += f"\n\n🔹 *Standard Scheme Frame*"
+                if bubble_type == "warning":
                     st.warning(card_text)
                 else:
                     st.info(card_text)
 
-    # Render lane configurations
+    # Output Lanes
     render_flight_cards(specials_list, "specially cool plens", "🎨", bubble_type="success")
-    render_flight_cards(heavies_list, "big plen", "⭐", bubble_type="info")
     
     if traffic_view == "All Movements":
         render_flight_cards(boring_list, "boring plen", "⚙️", bubble_type="warning")
