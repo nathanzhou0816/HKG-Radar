@@ -9,7 +9,7 @@ import datetime
 # ==============================================================================
 st.set_page_config(
     layout="wide", 
-    page_title="Aviation Custom Radar", 
+    page_title="mango phonk", 
     page_icon="✈️"
 )
 
@@ -230,7 +230,7 @@ with st.sidebar:
 # ==============================================================================
 # 5. CORE LAYOUT INPUT HUB
 # ==============================================================================
-st.title("✈️ plane tracking thing - only works for HKG")
+st.title("✈️ onllly works for hkg now")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -314,34 +314,36 @@ if st.button("Scan Current Movements"):
                 boring_list.append(flight_object)
 
     # ==============================================================================
-    # 8. LAYOUT RENDERING VIEWS (Colour Bubble Alert Blocks)
+    # 8. LAYOUT RENDERING VIEWS
     # ==============================================================================
     def render_flight_cards(flights, category_title, emoji, bubble_type="info"):
-        st.markdown(f"## {emoji} {category_title}({len(flights)})")
+        st.markdown(f"## {emoji} {category_title} ({len(flights)})")
         if not flights:
             st.markdown("*No movements tracked inside this category matrix.*")
             return
             
         for fl in flights:
-            # Format the classic bold header string layout
             card_text = f"**{fl['flight_no']}** ({fl['airline']}) | Reg: **{fl['reg']}** | Type: **{fl['type']}**"
             
+            # Watchlist/Special rendering logic
             if fl['special_desc']:
-                card_text += f"\n\n🚀 *MATCHED SPECIAL LIVERY: {fl['special_desc']}*"
-            elif fl['type'] in HEAVY_TYPES:
-                card_text += f"\n\n✈️ *Heavy Widebody Configuration*"
+                card_text += f"\n\n🚨 **WATCHLIST ALERT / MATCHED SPECIAL LIVERY:** `{fl['special_desc']}`"
+                st.error(card_text) # Hard red alert box for items in your custom database
             else:
-                card_text += f"\n\n🔹 *Standard Scheme Frame*"
+                if fl['type'] in HEAVY_TYPES:
+                    card_text += f"\n\n✈️ *Heavy Widebody Configuration*"
+                else:
+                    card_text += f"\n\n🔹 *Standard Scheme Frame*"
+                
+                # Render using the normal color-coded styles
+                if bubble_type == "success":
+                    st.success(card_text)
+                elif bubble_type == "warning":
+                    st.warning(card_text)
+                else:
+                    st.info(card_text)
 
-            # Route through the designated colored bubble theme container
-            if bubble_type == "success":
-                st.success(card_text)
-            elif bubble_type == "warning":
-                st.warning(card_text)
-            else:
-                st.info(card_text)
-
-    # Render out using the original named categories with bubble themes
+    # Render lane configurations
     render_flight_cards(specials_list, "specially cool plens", "🎨", bubble_type="success")
     render_flight_cards(heavies_list, "big plen", "⭐", bubble_type="info")
     
