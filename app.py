@@ -9,12 +9,37 @@ import datetime
 # ==============================================================================
 st.set_page_config(
     layout="wide", 
-    page_title="67 mango phonk", 
+    page_title="67 mango ponk", 
     page_icon="✈️"
 )
 
 # ==============================================================================
-# 2. SEED LIVERY DICTIONARY (Initial Setup Data)
+# 2. MASTER HEAVIES DATABASE MAP
+# ==============================================================================
+HEAVIES_DB = {
+    "A332": "Airbus A330-200",
+    "A333": "Airbus A330-300",
+    "A339": "Airbus A330-900neo",
+    "A343": "Airbus A340-300",
+    "A346": "Airbus A340-600",
+    "A359": "Airbus A350-900",
+    "A35K": "Airbus A350-1000",
+    "A388": "Airbus A380-800",
+    "B772": "Boeing 777-200",
+    "B773": "Boeing 777-300",
+    "B77W": "Boeing 777-300ER",
+    "B77F": "Boeing 777F",
+    "B788": "Boeing 787-8 Dreamliner",
+    "B789": "Boeing 787-9 Dreamliner",
+    "B78X": "Boeing 787-10 Dreamliner",
+    "B744": "Boeing 747-400",
+    "B748": "Boeing 747-8i",
+    "B74F": "Boeing 747 Freighter",
+    "74F":  "Boeing 747 Freighter"
+}
+
+# ==============================================================================
+# 3. SEED LIVERY DICTIONARY (Initial Setup Data)
 # ==============================================================================
 SEED_LIVERIES_DB = {
     # --- CHINA EASTERN AIRLINES & CHINA CARGO ---
@@ -214,17 +239,18 @@ with open(JSON_FILE, "r", encoding="utf-8") as f:
     LIVE_LIVERIES_DATABASE = json.load(f)
 
 # ==============================================================================
-# 4. SIDEBAR TRAFFIC FILTER & WATCHLIST ENTRY FORMS
+# 4. SIDEBAR TRAFFIC FILTER & FIX: CORRECT STREAMLIT SUBMIT BUTTON
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
     
-    # NEW: Interactive text boxes to input custom registrations to the Watchlist
     st.markdown("#### ➕ Add Registration to Watchlist")
     with st.form("watchlist_form", clear_on_submit=True):
         new_reg = st.text_input("Registration (e.g., B-18055):").upper().strip()
         new_desc = st.text_input("Livery Notes (e.g., China Airlines - Zootopia 2):").strip()
-        submitted = st.form_submit_with_button("Add to Watchlist")
+        
+        # FIXED: Changed from form_submit_with_button to standard form_submit_button
+        submitted = st.form_submit_button("Add to Watchlist")
         
         if submitted:
             if new_reg and new_desc:
@@ -232,6 +258,7 @@ with st.sidebar:
                 with open(JSON_FILE, "w", encoding="utf-8") as f:
                     json.dump(LIVE_LIVERIES_DATABASE, f, indent=4)
                 st.toast(f"✅ Added {new_reg} to watchlist!", icon="✈️")
+                st.rerun()
             else:
                 st.error("Please fill in both fields.")
 
@@ -240,14 +267,14 @@ with st.sidebar:
     st.markdown("---")
     traffic_view = st.radio(
         "Show Traffic Selection:",
-        options=["All Movements", "Watchlist / Specials Only"],
+        options=["All Movements", "Heavies / Watchlist / Specials Only"],
         index=0
     )
 
 # ==============================================================================
 # 5. CORE LAYOUT INPUT HUB
 # ==============================================================================
-st.title("only work for hkg")
+st.title("only works for hkg")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -258,7 +285,7 @@ with col2:
 operation_focus = st.radio("Operation Focus", options=["Arrivals", "Departures"], horizontal=True)
 
 # ==============================================================================
-# 6. PIPELINE RUNTIME SCRAPER
+# 6. PIPELINE RUNTIME SCRAPER WITH ROBUST API DEFENSE
 # ==============================================================================
 if st.button("Scan Current Movements"):
     
@@ -282,42 +309,58 @@ if st.button("Scan Current Movements"):
         raw_json = response.json()
         
         schedule_data = raw_json.get("result", {}).get("response", {}).get("airport", {}).get("pluginData", {}).get("schedule", {})
-        active_flights = schedule_data.get("arrivals", {}).get("data", []) if operation_focus.lower() == "arrivals" else schedule_data.get("departures", {}).get("data", [])
+        if schedule_data:
+            active_flights = schedule_data.get("arrivals", {}).get("data", []) if operation_focus.lower() == "arrivals" else schedule_data.get("departures", {}).get("data", [])
+        else:
+            active_flights = []
+            st.warning("No flight block data returned from API schedule container.")
         
     except Exception as e:
         st.error(f"Feed Connection Issue: {e}")
         active_flights = []
 
     # ==============================================================================
-    # 7. CATEGORY SORTING ENGINE (Disregarded heavy split logic)
+    # 7. MULTI-CATEGORY SORTING ENGINE (Specials, Heavies, and Narrowbodies)
     # ==============================================================================
     specials_list = []
+    heavies_list = []
     boring_list = []
 
     for item in active_flights:
-        f = item.get("flight", {}) or {}
+        if not item:
+            continue
+        f = item.get("flight", {})
+        if not f:
+            f = {}
         
         flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
         
-        aircraft_info = f.get("aircraft", {}) or {}
+        aircraft_info = f.get("aircraft", {}) if f.get("aircraft") else {}
         reg = aircraft_info.get("registration", "UNKNOWN").upper()
         aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
         
-        airline_dict = f.get("airline", {}) or {}
+        # FIXED: Added defense layer to prevent NoneType attribute get errors if airline is missing
+        airline_dict = f.get("airline", {})
+        if airline_dict is None:
+            airline_dict = {}
         airline_name = airline_dict.get("name", "Unknown Operator")
         
         special_desc = LIVE_LIVERIES_DATABASE.get(reg, None)
+        heavy_desc = HEAVIES_DB.get(aircraft_code, None)
         
         flight_object = {
             "flight_no": flight_no,
             "airline": airline_name,
             "reg": reg,
             "type": aircraft_code,
-            "special_desc": special_desc
+            "special_desc": special_desc,
+            "heavy_desc": heavy_desc
         }
         
         if special_desc:
             specials_list.append(flight_object)
+        elif heavy_desc:
+            heavies_list.append(flight_object)
         else:
             if traffic_view == "All Movements":
                 boring_list.append(flight_object)
@@ -335,17 +378,19 @@ if st.button("Scan Current Movements"):
             card_text = f"**{fl['flight_no']}** ({fl['airline']}) | Reg: **{fl['reg']}** | Type: **{fl['type']}**"
             
             if fl['special_desc']:
-                card_text += f"\n\n🚨 **WATCHLIST ALERT / MATCHED SPECIAL LIVERY:** `{fl['special_desc']}`"
-                st.error(card_text)  # Custom Red Watchlist Bubble
+                card_text += f"\n\n🚨 **MATCHED SPECIAL LIVERY:** `{fl['special_desc']}`"
+                st.info(card_text)  # Beautiful custom tracking card info display
             else:
-                card_text += f"\n\n🔹 *Standard Scheme Frame*"
-                if bubble_type == "warning":
-                    st.warning(card_text)
+                if fl['heavy_desc']:
+                    card_text += f"\n\n✈️ **Heavy Widebody:** `{fl['heavy_desc']}`"
+                    st.success(card_text)
                 else:
-                    st.info(card_text)
+                    card_text += f"\n\n🔹 *Standard Scheme Framework*"
+                    st.warning(card_text)
 
-    # Output Lanes
-    render_flight_cards(specials_list, "specially cool plens", "🎨", bubble_type="success")
+    # UI Output Lanes Matching Custom Category Syntax
+    render_flight_cards(specials_list, "specially cool plens", "🎨", bubble_type="info")
+    render_flight_cards(heavies_list, "big plen", "⭐", bubble_type="success")
     
     if traffic_view == "All Movements":
         render_flight_cards(boring_list, "boring plen", "⚙️", bubble_type="warning")
