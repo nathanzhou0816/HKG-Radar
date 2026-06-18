@@ -245,7 +245,6 @@ operation_focus = st.radio("Operation Focus", options=["Arrivals", "Departures"]
 # ==============================================================================
 if st.button("Scan Current Movements"):
     
-    # Calculate exact unix timestamp parameters for the chosen date boundaries
     unix_timestamp = int(datetime.datetime.combine(spotting_date, datetime.time.min).timestamp())
     
     DATA_FEED_URL = (
@@ -279,14 +278,12 @@ if st.button("Scan Current Movements"):
     heavies_list = []
     boring_list = []
     
-    # Define heavy widebody frames
     HEAVY_TYPES = [
         "A332", "A333", "A343", "A346", "A359", "A35K", "A388", 
         "B772", "B773", "B77W", "B788", "B789", "B78X", "B744", "B748", "74F"
     ]
 
     for item in active_flights:
-        # 🛡️ FIX: Use an empty fallback dictionary if 'flight' is missing or None
         f = item.get("flight", {}) or {}
         
         flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
@@ -295,11 +292,9 @@ if st.button("Scan Current Movements"):
         reg = aircraft_info.get("registration", "UNKNOWN").upper()
         aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
         
-        # 🛡️ FIX: Safely parse airline dictionary context
         airline_dict = f.get("airline", {}) or {}
         airline_name = airline_dict.get("name", "Unknown Operator")
         
-        # Look up across our 162-item asset rules dictionary
         special_desc = LIVE_LIVERIES_DATABASE.get(reg, None)
         
         flight_object = {
@@ -310,7 +305,6 @@ if st.button("Scan Current Movements"):
             "special_desc": special_desc
         }
         
-        # Sort item directly into one of the three priority categories
         if special_desc:
             specials_list.append(flight_object)
         elif aircraft_code in HEAVY_TYPES:
@@ -320,35 +314,36 @@ if st.button("Scan Current Movements"):
                 boring_list.append(flight_object)
 
     # ==============================================================================
-    # 8. LAYOUT RENDERING VIEWS
+    # 8. LAYOUT RENDERING VIEWS (Colour Bubble Alert Blocks)
     # ==============================================================================
-    
-    # Helper rendering block function to ensure strict design uniformity across sections
-    def render_flight_cards(flights, category_title, emoji):
-        st.markdown(f"## {emoji} {category_title} ({len(flights)})")
+    def render_flight_cards(flights, category_title, emoji, bubble_type="info"):
+        st.markdown(f"## {emoji} {category_title}({len(flights)})")
         if not flights:
             st.markdown("*No movements tracked inside this category matrix.*")
-            st.markdown("---")
             return
             
         for fl in flights:
-            with st.container():
-                col_img, col_info = st.columns([1, 4])
-                with col_img:
-                    st.caption("📷 No Photo")
-                with col_info:
-                    st.markdown(f"### **{fl['flight_no']}** ({fl['airline']}) | Reg: `{fl['reg']}` | Type: **{fl['type']}**")
-                    if fl['special_desc']:
-                        st.markdown(f"🎨 **Special Livery Scheme Match:** `{fl['special_desc']}`")
-                    elif fl['type'] in HEAVY_TYPES:
-                        st.markdown(f"✈️ Heavy Widebody ({fl['type']})")
-                    else:
-                        st.markdown("🔹 *Standard Scheme Framework*")
-                st.markdown("---")
+            # Format the classic bold header string layout
+            card_text = f"**{fl['flight_no']}** ({fl['airline']}) | Reg: **{fl['reg']}** | Type: **{fl['type']}**"
+            
+            if fl['special_desc']:
+                card_text += f"\n\n🚀 *MATCHED SPECIAL LIVERY: {fl['special_desc']}*"
+            elif fl['type'] in HEAVY_TYPES:
+                card_text += f"\n\n✈️ *Heavy Widebody Configuration*"
+            else:
+                card_text += f"\n\n🔹 *Standard Scheme Frame*"
 
-    # Render out each distinct tracking lane block
-    render_flight_cards(specials_list, "Special Schemes & Watchlist", "🎨")
-    render_flight_cards(heavies_list, "Heavy Widebodies", "✈️")
+            # Route through the designated colored bubble theme container
+            if bubble_type == "success":
+                st.success(card_text)
+            elif bubble_type == "warning":
+                st.warning(card_text)
+            else:
+                st.info(card_text)
+
+    # Render out using the original named categories with bubble themes
+    render_flight_cards(specials_list, "specially cool plens", "🎨", bubble_type="success")
+    render_flight_cards(heavies_list, "big plen", "⭐", bubble_type="info")
     
     if traffic_view == "All Movements":
-        render_flight_cards(boring_list, "boring plen", "⚙️")
+        render_flight_cards(boring_list, "boring plen", "⚙️", bubble_type="warning")
