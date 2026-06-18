@@ -236,7 +236,6 @@ SEED_LIVERIES_DB = {
 # ==============================================================================
 JSON_FILE = "saved_liveries.json"
 
-# Read database or build structured file template
 if not os.path.exists(JSON_FILE):
     STORAGE_DATA = {"specials": SEED_LIVERIES_DB, "watchlist": {}}
     with open(JSON_FILE, "w", encoding="utf-8") as f:
@@ -248,36 +247,34 @@ else:
         except Exception:
             STORAGE_DATA = {"specials": SEED_LIVERIES_DB, "watchlist": {}}
 
-# FIXED: Corruption defense loop. If 'B-5943' (a standard special) leaked into watchlist, wipe it back clean
+# Corruption defense loop to fix old leaked schemas
 if "watchlist" not in STORAGE_DATA or "B-5943" in STORAGE_DATA.get("watchlist", {}):
     STORAGE_DATA = {"specials": SEED_LIVERIES_DB, "watchlist": {}}
     with open(JSON_FILE, "w", encoding="utf-8") as f:
         json.dump(STORAGE_DATA, f, indent=4)
 
-# Always force-refresh special livery codes directly from current code definition array to stay updated
 STORAGE_DATA["specials"] = SEED_LIVERIES_DB
 
 WATCHLIST_DB = STORAGE_DATA.get("watchlist", {})
 SPECIALS_DB = STORAGE_DATA.get("specials", {})
 
 # ==============================================================================
-# 5. SIDEBAR DESIGN (Isolates and displays *ONLY* custom user-added records)
+# 5. SIDEBAR DESIGN (Includes Add & NEW Remove Custom Target Engines)
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
     
+    # --- FORM A: ADD TARGET ---
     st.markdown("#### ➕ Add Registration to Watchlist")
     with st.form("watchlist_form", clear_on_submit=True):
         new_reg = st.text_input("Registration (e.g., B-18055):").upper().strip()
         new_desc = st.text_input("Livery Notes (Optional):").strip()
-        
         submitted = st.form_submit_button("Add to Watchlist")
         
         if submitted:
             if new_reg:
                 final_desc = new_desc if new_desc else "Custom Watchlist Tracked Target"
                 WATCHLIST_DB[new_reg] = final_desc
-                
                 STORAGE_DATA["watchlist"] = WATCHLIST_DB
                 with open(JSON_FILE, "w", encoding="utf-8") as f:
                     json.dump(STORAGE_DATA, f, indent=4)
@@ -286,7 +283,26 @@ with st.sidebar:
             else:
                 st.error("Registration is required.")
 
-    # FIXED: The sidebar list now ONLY lists your true personal custom entries!
+    # --- NEW FORM B: REMOVE TARGET ---
+    if WATCHLIST_DB:
+        st.markdown("#### ❌ Remove From Watchlist")
+        with st.form("remove_form"):
+            remove_selection = st.selectbox(
+                "Select target to drop:",
+                options=list(WATCHLIST_DB.keys()),
+                format_func=lambda x: f"{x} ({WATCHLIST_DB[x]})"
+            )
+            remove_submitted = st.form_submit_button("Delete Registration")
+            
+            if remove_submitted:
+                del WATCHLIST_DB[remove_selection]
+                STORAGE_DATA["watchlist"] = WATCHLIST_DB
+                with open(JSON_FILE, "w", encoding="utf-8") as f:
+                    json.dump(STORAGE_DATA, f, indent=4)
+                st.toast(f"🗑️ {remove_selection} purged from radar memory.", icon="👋")
+                st.rerun()
+
+    # --- WATCHLIST LIVE READOUT ---
     st.markdown("#### 📋 Current Watchlist Active Targets")
     if WATCHLIST_DB:
         for r, d in WATCHLIST_DB.items():
@@ -352,7 +368,7 @@ if st.button("Scan Current Movements"):
         st.session_state.scan_performed = True
 
 # ==============================================================================
-# 8. STRUCTURAL SORTING LAYER (Watchlists and Specials are fully separated now!)
+# 8. STRUCTURAL SORTING LAYER
 # ==============================================================================
 if st.session_state.scan_performed:
     watchlist_matches = []
@@ -387,7 +403,6 @@ if st.session_state.scan_performed:
             "heavy_desc": heavy_desc
         }
         
-        # FIXED: Priority isolation fallback hierarchy logic
         if watchlist_desc:
             watchlist_matches.append(flight_object)
         elif special_desc:
