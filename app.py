@@ -5,13 +5,19 @@ import os
 import datetime
 
 # ==============================================================================
-# 1. GLOBAL PAGE CONFIGURATION
+# 1. GLOBAL PAGE CONFIGURATION & STATE INITIALIZATION
 # ==============================================================================
 st.set_page_config(
     layout="wide", 
-    page_title="67 mango ponk", 
+    page_title="mango 67 phonk", 
     page_icon="✈️"
 )
+
+# Initialize Session State variables to prevent data from wiping on rerun
+if "active_flights" not in st.session_state:
+    st.session_state.active_flights = []
+if "scan_performed" not in st.session_state:
+    st.session_state.scan_performed = False
 
 # ==============================================================================
 # 2. MASTER HEAVIES DATABASE MAP
@@ -228,7 +234,7 @@ SEED_LIVERIES_DB = {
 }
 
 # ==============================================================================
-# 3. STORAGE FILE PERSISTENCE ENGINE
+# 4. STORAGE FILE PERSISTENCE ENGINE
 # ==============================================================================
 JSON_FILE = "saved_liveries.json"
 if not os.path.exists(JSON_FILE):
@@ -239,7 +245,7 @@ with open(JSON_FILE, "r", encoding="utf-8") as f:
     LIVE_LIVERIES_DATABASE = json.load(f)
 
 # ==============================================================================
-# 4. SIDEBAR TRAFFIC FILTER & FIX: CORRECT STREAMLIT SUBMIT BUTTON
+# 5. SIDEBAR TRAFFIC FILTER & PERSISTENT SUBMIT OPERATIONS
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
@@ -247,20 +253,23 @@ with st.sidebar:
     st.markdown("#### ➕ Add Registration to Watchlist")
     with st.form("watchlist_form", clear_on_submit=True):
         new_reg = st.text_input("Registration (e.g., B-18055):").upper().strip()
-        new_desc = st.text_input("Livery Notes (e.g., China Airlines - Zootopia 2):").strip()
+        new_desc = st.text_input("Livery Notes (Optional):").strip()
         
-        # FIXED: Changed from form_submit_with_button to standard form_submit_button
         submitted = st.form_submit_button("Add to Watchlist")
         
         if submitted:
-            if new_reg and new_desc:
-                LIVE_LIVERIES_DATABASE[new_reg] = new_desc
+            # FIXED: Only Registration is mandatory now!
+            if new_reg:
+                # If notes are empty, fill with a default fallback tag
+                final_desc = new_desc if new_desc else "Custom Watchlist Entry"
+                
+                LIVE_LIVERIES_DATABASE[new_reg] = final_desc
                 with open(JSON_FILE, "w", encoding="utf-8") as f:
                     json.dump(LIVE_LIVERIES_DATABASE, f, indent=4)
                 st.toast(f"✅ Added {new_reg} to watchlist!", icon="✈️")
                 st.rerun()
             else:
-                st.error("Please fill in both fields.")
+                st.error("Registration field is required.")
 
     st.success(f"Database Operational: {len(LIVE_LIVERIES_DATABASE)} entries actively monitored.")
     
@@ -272,9 +281,9 @@ with st.sidebar:
     )
 
 # ==============================================================================
-# 5. CORE LAYOUT INPUT HUB
+# 6. CORE LAYOUT INPUT HUB
 # ==============================================================================
-st.title("only works for hkg")
+st.title("only works @ hkg")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -285,7 +294,7 @@ with col2:
 operation_focus = st.radio("Operation Focus", options=["Arrivals", "Departures"], horizontal=True)
 
 # ==============================================================================
-# 6. PIPELINE RUNTIME SCRAPER WITH ROBUST API DEFENSE
+# 7. PIPELINE RUNTIME SCRAPER (Saves directly to Session State)
 # ==============================================================================
 if st.button("Scan Current Movements"):
     
@@ -310,23 +319,30 @@ if st.button("Scan Current Movements"):
         
         schedule_data = raw_json.get("result", {}).get("response", {}).get("airport", {}).get("pluginData", {}).get("schedule", {})
         if schedule_data:
-            active_flights = schedule_data.get("arrivals", {}).get("data", []) if operation_focus.lower() == "arrivals" else schedule_data.get("departures", {}).get("data", [])
+            fetched_flights = schedule_data.get("arrivals", {}).get("data", []) if operation_focus.lower() == "arrivals" else schedule_data.get("departures", {}).get("data", [])
+            
+            # Save raw matches into session state so it persists across sidebar actions
+            st.session_state.active_flights = fetched_flights
+            st.session_state.scan_performed = True
         else:
-            active_flights = []
-            st.warning("No flight block data returned from API schedule container.")
+            st.session_state.active_flights = []
+            st.session_state.scan_performed = True
+            st.warning("No flight data returned from API schedule container.")
         
     except Exception as e:
         st.error(f"Feed Connection Issue: {e}")
-        active_flights = []
+        st.session_state.active_flights = []
+        st.session_state.scan_performed = True
 
-    # ==============================================================================
-    # 7. MULTI-CATEGORY SORTING ENGINE (Specials, Heavies, and Narrowbodies)
-    # ==============================================================================
+# ==============================================================================
+# 8. MULTI-CATEGORY SORTING ENGINE (Processes cached Session State flights)
+# ==============================================================================
+if st.session_state.scan_performed:
     specials_list = []
     heavies_list = []
     boring_list = []
 
-    for item in active_flights:
+    for item in st.session_state.active_flights:
         if not item:
             continue
         f = item.get("flight", {})
@@ -339,12 +355,12 @@ if st.button("Scan Current Movements"):
         reg = aircraft_info.get("registration", "UNKNOWN").upper()
         aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
         
-        # FIXED: Added defense layer to prevent NoneType attribute get errors if airline is missing
         airline_dict = f.get("airline", {})
         if airline_dict is None:
             airline_dict = {}
         airline_name = airline_dict.get("name", "Unknown Operator")
         
+        # Pull dynamically from the updated file-persisted map
         special_desc = LIVE_LIVERIES_DATABASE.get(reg, None)
         heavy_desc = HEAVIES_DB.get(aircraft_code, None)
         
@@ -366,7 +382,7 @@ if st.button("Scan Current Movements"):
                 boring_list.append(flight_object)
 
     # ==============================================================================
-    # 8. LAYOUT RENDERING VIEWS
+    # 9. LAYOUT RENDERING VIEWS
     # ==============================================================================
     def render_flight_cards(flights, category_title, emoji, bubble_type="info"):
         st.markdown(f"## {emoji} {category_title} ({len(flights)})")
@@ -379,7 +395,7 @@ if st.button("Scan Current Movements"):
             
             if fl['special_desc']:
                 card_text += f"\n\n🚨 **MATCHED SPECIAL LIVERY:** `{fl['special_desc']}`"
-                st.info(card_text)  # Beautiful custom tracking card info display
+                st.info(card_text)
             else:
                 if fl['heavy_desc']:
                     card_text += f"\n\n✈️ **Heavy Widebody:** `{fl['heavy_desc']}`"
@@ -388,7 +404,7 @@ if st.button("Scan Current Movements"):
                     card_text += f"\n\n🔹 *Standard Scheme Framework*"
                     st.warning(card_text)
 
-    # UI Output Lanes Matching Custom Category Syntax
+    # Output Rendering
     render_flight_cards(specials_list, "specially cool plens", "🎨", bubble_type="info")
     render_flight_cards(heavies_list, "big plen", "⭐", bubble_type="success")
     
