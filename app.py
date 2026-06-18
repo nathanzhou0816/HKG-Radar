@@ -203,7 +203,7 @@ SPECIAL_LIVERIES_DB = {
 }
 
 # ==============================================================================
-# 3. STORAGE DISK LIFECYCLE
+# 3. STORAGE LIFECYCLE MANAGEMENT
 # ==============================================================================
 JSON_FILE = "saved_liveries.json"
 if not os.path.exists(JSON_FILE):
@@ -214,7 +214,7 @@ with open(JSON_FILE, "r", encoding="utf-8") as f:
     LIVE_LIVERIES_DATABASE = json.load(f)
 
 # ==============================================================================
-# 4. SIDEBAR SETTINGS
+# 4. SIDEBAR TRAFFIC FILTER
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 🛠️ Custom Fleet Management")
@@ -228,7 +228,7 @@ with st.sidebar:
     )
 
 # ==============================================================================
-# 5. DASHBOARD HEADERS
+# 5. CORE LAYOUT INPUT HUB
 # ==============================================================================
 st.title("✈️ Global Live Spotting Radar Dashboard")
 
@@ -241,13 +241,21 @@ with col2:
 operation_focus = st.radio("Operation Focus", options=["Arrivals", "Departures"], horizontal=True)
 
 # ==============================================================================
-# 6. PIPELINE TRACKS DATA LOADER (YOUR ORIGINAL FLIGHT FEED METHOD)
+# 6. PIPELINE RUNTIME SCRAPER
 # ==============================================================================
 if st.button("Scan Current Movements"):
     
-    # 🌍 RESTORING YOUR ORIGINAL DATA ENGINE LINK
-    # We pass the selected date parameters directly to your active tracker
-    DATA_FEED_URL = f"https://api.flightradar24.com/common/v1/airport.json?code={airport_code.lower()}&plugin[]=&plugin-setting[schedule][mode]={operation_focus.lower()}&plugin-setting[schedule][timestamp]={int(datetime.datetime.combine(spotting_date, datetime.time.min).timestamp())}&page=1&limit=100"
+    # Calculate exact unix timestamp parameters for the chosen date boundaries
+    unix_timestamp = int(datetime.datetime.combine(spotting_date, datetime.time.min).timestamp())
+    
+    DATA_FEED_URL = (
+        f"https://api.flightradar24.com/common/v1/airport.json"
+        f"?code={airport_code.lower()}"
+        f"&plugin[]="
+        f"&plugin-setting[schedule][mode]={operation_focus.lower()}"
+        f"&plugin-setting[schedule][timestamp]={unix_timestamp}"
+        f"&page=1&limit=100"
+    )
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -257,7 +265,6 @@ if st.button("Scan Current Movements"):
         response = requests.get(DATA_FEED_URL, headers=headers, timeout=12)
         raw_json = response.json()
         
-        # Drilling into the standard data feed response layout arrays
         schedule_data = raw_json.get("result", {}).get("response", {}).get("airport", {}).get("pluginData", {}).get("schedule", {})
         active_flights = schedule_data.get("arrivals", {}).get("data", []) if operation_focus.lower() == "arrivals" else schedule_data.get("departures", {}).get("data", [])
         
@@ -266,45 +273,77 @@ if st.button("Scan Current Movements"):
         active_flights = []
 
     # ==============================================================================
-    # 7. LAYOUT RENDERING LOOPS
+    # 7. MULTI-CATEGORY SORTING ENGINE
     # ==============================================================================
-    st.markdown("### 🎨 Live Special/Watchlist Matches")
+    specials_list = []
+    heavies_list = []
+    boring_list = []
     
-    if not active_flights:
-        st.warning("No flights detected inside this schedule block.")
-    else:
-        for item in active_flights:
-            f = item.get("flight", {})
-            flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
+    # Define heavy widebody frames
+    HEAVY_TYPES = [
+        "A332", "A333", "A343", "A346", "A359", "A35K", "A388", 
+        "B772", "B773", "B77W", "B788", "B789", "B78X", "B744", "B748", "74F"
+    ]
+
+    for item in active_flights:
+        f = item.get("flight", {})
+        flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
+        
+        aircraft_info = f.get("aircraft", {}) or {}
+        reg = aircraft_info.get("registration", "UNKNOWN").upper()
+        aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
+        airline_name = f.get("airline", {}).get("name", "Unknown Operator")
+        
+        # Look up across our 162-item asset rules dictionary
+        special_desc = LIVE_LIVERIES_DATABASE.get(reg, None)
+        
+        flight_object = {
+            "flight_no": flight_no,
+            "airline": airline_name,
+            "reg": reg,
+            "type": aircraft_code,
+            "special_desc": special_desc
+        }
+        
+        # Sort item directly into one of the three priority categories
+        if special_desc:
+            specials_list.append(flight_object)
+        elif aircraft_code in HEAVY_TYPES:
+            heavies_list.append(flight_object)
+        else:
+            if traffic_view == "All Movements":
+                boring_list.append(flight_object)
+
+    # ==============================================================================
+    # 8. LAYOUT RENDERING VIEWS
+    # ==============================================================================
+    
+    # Helper rendering block function to ensure strict design uniformity across sections
+    def render_flight_cards(flights, category_title, emoji):
+        st.markdown(f"## {emoji} {category_title} ({len(flights)})")
+        if not flights:
+            st.markdown("*No movements tracked inside this category matrix.*")
+            st.markdown("---")
+            return
             
-            aircraft_info = f.get("aircraft", {}) or {}
-            reg = aircraft_info.get("registration", "UNKNOWN").upper()
-            aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN")
-            airline_name = f.get("airline", {}).get("name", "Unknown Operator")
-            
-            # Cross-reference the registration string against our 162 database entries
-            special_desc = LIVE_LIVERIES_DATABASE.get(reg, None)
-            
-            # Determine rendering visibility based on sidebar traffic filters
-            should_display = True
-            if traffic_view == "Heavies / Watchlist / Specials Only":
-                is_heavy = aircraft_code.upper() in [
-                    "A332", "A333", "A343", "A346", "A359", "A35K", "A388", 
-                    "B772", "B773", "B77W", "B788", "B789", "B78X", "B744", "B748"
-                ]
-                if not special_desc and not is_heavy:
-                    should_display = False
-            
-            # Render structured layout blocks
-            if should_display:
-                with st.container():
-                    col_img, col_info = st.columns([1, 4])
-                    with col_img:
-                        st.caption("📷 No Photo")
-                    with col_info:
-                        st.markdown(f"### **{flight_no}** ({airline_name}) | Reg: `{reg}` | Type: **{aircraft_code}**")
-                        if special_desc:
-                            st.markdown(f"🚨 **Special Livery Scheme Match:** `{special_desc}` 🚨")
-                        else:
-                            st.markdown("🔹 *Standard Scheme Framework*")
-                    st.markdown("---")
+        for fl in flights:
+            with st.container():
+                col_img, col_info = st.columns([1, 4])
+                with col_img:
+                    st.caption("📷 No Photo")
+                with col_info:
+                    st.markdown(f"### **{fl['flight_no']}** ({fl['airline']}) | Reg: `{fl['reg']}` | Type: **{fl['type']}**")
+                    if fl['special_desc']:
+                        st.markdown(f"🎨 **Special Livery Scheme Match:** `{fl['special_desc']}`")
+                    elif fl['type'] in HEAVY_TYPES:
+                        st.markdown(f"✈️ Heavy Widebody ({fl['type']})")
+                    else:
+                        st.markdown("🔹 *Standard Scheme Framework*")
+                st.markdown("---")
+
+    # Render out each distinct tracking lane block
+    render_flight_cards(specials_list, "Special Schemes & Watchlist", "🎨")
+    render_flight_cards(heavies_list, "Heavy Widebodies", "✈️")
+    
+    if traffic_view == "All Movements":
+        render_flight_cards(boring_list, "boring plen", "⚙️")
