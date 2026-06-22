@@ -9,7 +9,7 @@ import datetime
 # ==============================================================================
 st.set_page_config(
     layout="wide", 
-    page_title="Plane Finder - for plane spotter", 
+    page_title="Plane Finder", 
     page_icon="✈️"
 )
 
