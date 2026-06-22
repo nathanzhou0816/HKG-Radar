@@ -238,7 +238,7 @@ SEED_LIVERIES_DB = {
     # --- Lufthansa ---
     "D-ABPU": "Lufthansa Boeing 787-9 - 100th Anniversary Livery",
     "D-ABYN": "Lufthansa Boeing 747-8i - 100th Anniversary Livery",
-    "D-AIXL": "Lufthamsa Airbus A350-900 - 100th Anniversary Livery",
+    "D-AIXL": "Lufthansa Airbus A350-900 - 100th Anniversary Livery",
     "D-AIMH": "Lufthansa Airbus A380-800 - 100th Anniversary Livery",
     "D-ABYT": "Lufthansa Boeing 747-8i - Retro Livery",
     
@@ -248,7 +248,7 @@ SEED_LIVERIES_DB = {
     "N3761R": "Delta Air Lines Boeing 737-800 - SkyTeam",
     "N381DN": "Delta Air Lines Boeing 737-800 - SkyTeam",
     "N841MH": "Delta Air Lines Boeing 767-400ER - Relay For Life (sticker)",
-    "N391DN": "Delta Air Lines Airbus A321 - Thank You / Employees\\' Names",
+    "N391DN": "Delta Air Lines Airbus A321 - Thank You / Employees' Names",
     "N502DN": "Delta Air Lines Airbus A350-900 - The Delta Spirit (sticker)",
     "N411DX": "Delta Air Lines Airbus A330-900neo - #TeamUSA Beijing Winter Olympics (sticker)",
     "N3746H": "Delta Air Lines Boeing 737-800 - World Series Champions 2021 (sticker)",
@@ -281,7 +281,7 @@ SEED_LIVERIES_DB = {
     "C-FSBV": "Air Canada Boeing 787-9 - 2025 Employee Excellence Awards Recipients",
     "C-GEGC": "Air Canada Airbus A330-300 - Fly The Flag / Canadian Olympic team",
     "C-GOKG": "Air Transat Airbus A321neo - CF Montreal football team",
-    "C-GFOF": "Flair Airlines Boeing 737 MAX 8 - Canada\\'s Most Reliable Airline (sticker)",
+    "C-GFOF": "Flair Airlines Boeing 737 MAX 8 - Canada's Most Reliable Airline (sticker)",
     "C-FIVM": "Air Canada Boeing 777-300ER - 2026 Employee Excellence Awards recipients",
 
     # --- EMIRATES ---
@@ -313,7 +313,7 @@ SEED_LIVERIES_DB = {
     "A7-BOC": "Qatar Airways Boeing 777-300ER - Retro",
     "A7-BCZ": "Qatar Airways Boeing 787-8 - 25 Years Of Excellence (sticker)",
     "A7-BCX": "Qatar Airways Boeing 787-8 - 25 Years Of Excellence (sticker)",
-    "A7-AHH": "Qatar Airways Airbus A320 - 25 Years Of Excellence (sticker)",
+    "A7-AHG": "Qatar Airways Airbus A320 - 25 Years Of Excellence (sticker)",
     "A7-BCW": "Qatar Airways Boeing 787-8 - 25 Years Of Excellence (sticker)",
     "A7-LAB": "Qatar Airways Airbus A320 - 25 Years Of Excellence (sticker)",
     "A7-LAC": "Qatar Airways Airbus A320 - 25 Years Of Excellence (sticker)",
@@ -499,7 +499,6 @@ with st.sidebar:
         if submitted:
             if new_reg:
                 # DYNAMIC LOOKUP ON CREATION:
-                # Check if it exists in our core special liveries database first
                 if not new_desc:
                     if new_reg in SEED_LIVERIES_DB:
                         final_desc = SEED_LIVERIES_DB[new_reg]
@@ -539,8 +538,6 @@ with st.sidebar:
     st.markdown("#### 📋 Current Watchlist Active Targets")
     if WATCHLIST_DB:
         for r, d in WATCHLIST_DB.items():
-            # SIDEBAR LIVE FALLBACK:
-            # If the stored file has an old generic placeholder, fix it dynamically on screen
             display_desc = d
             if d == "Custom Watchlist Tracked Target" and r in SEED_LIVERIES_DB:
                 display_desc = SEED_LIVERIES_DB[r]
@@ -555,10 +552,11 @@ with st.sidebar:
         options=["All Movements", "Watchlist / Heavies / Specials Only"],
         index=0
     )
+
 # ==============================================================================
 # 6. CORE LAYOUT INPUT HUB
 # ==============================================================================
-st.title("✈️ for hkg use only currently")
+st.title("✈️ Plane Finder")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -606,87 +604,86 @@ if st.button("Scan Current Movements"):
         st.session_state.scan_performed = True
 
 # ==============================================================================
-    # 8. STRUCTURAL SORTING LAYER
-    # ==============================================================================
-    watchlist_matches = []
-    specials_list = []
-    heavies_list = []
-    boring_list = []
+# 8. STRUCTURAL SORTING LAYER (DENTED OUTWARD FROM BUTTON TRACKING)
+# ==============================================================================
+watchlist_matches = []
+specials_list = []
+heavies_list = []
+boring_list = []
 
-    for item in st.session_state.active_flights:
-        if not item:
-            continue
-        f = item.get("flight", {}) or {}
-        
-        flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
-        aircraft_info = f.get("aircraft", {}) or {}
-        reg = aircraft_info.get("registration", "UNKNOWN").upper()
-        aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
-        
-        airline_dict = f.get("airline", {}) or {}
-        airline_name = airline_dict.get("name", "Unknown Operator")
-        
-        watchlist_desc = WATCHLIST_DB.get(reg, None)
-        special_desc = SPECIALS_DB.get(reg, None)
-        heavy_desc = HEAVIES_DB.get(aircraft_code, None)
-        
-        # --- DYNAMIC WATCHLIST DETAIL RESOLUTION ---
-        # If a custom target was added without explicit notes, look up its real 
-        # details in the specials or heavies database rather than showing the default fallback.
-        if watchlist_desc == "Custom Watchlist Tracked Target":
-            if special_desc:
-                watchlist_desc = special_desc
-            elif heavy_desc:
-                watchlist_desc = f"{airline_name} {heavy_desc}"
-            else:
-                watchlist_desc = f"{airline_name} ({aircraft_code})"
-        
-        flight_object = {
-            "flight_no": flight_no,
-            "airline": airline_name,
-            "reg": reg,
-            "type": aircraft_code,
-            "watchlist_desc": watchlist_desc,
-            "special_desc": special_desc,
-            "heavy_desc": heavy_desc
-        }
-        
-        if WATCHLIST_DB.get(reg, None) is not None:
-            watchlist_matches.append(flight_object)
-        elif special_desc:
-            specials_list.append(flight_object)
+for item in st.session_state.active_flights:
+    if not item:
+        continue
+    f = item.get("flight", {}) or {}
+    
+    flight_no = f.get("identification", {}).get("number", {}).get("default", "N/A")
+    aircraft_info = f.get("aircraft", {}) or {}
+    reg = aircraft_info.get("registration", "UNKNOWN").upper()
+    aircraft_code = aircraft_info.get("model", {}).get("code", "UNKN").upper()
+    
+    airline_dict = f.get("airline", {}) or {}
+    airline_name = airline_dict.get("name", "Unknown Operator")
+    
+    watchlist_desc = WATCHLIST_DB.get(reg, None)
+    special_desc = SPECIALS_DB.get(reg, None)
+    heavy_desc = HEAVIES_DB.get(aircraft_code, None)
+    
+    # --- DYNAMIC WATCHLIST DETAIL RESOLUTION ---
+    if watchlist_desc == "Custom Watchlist Tracked Target":
+        if special_desc:
+            watchlist_desc = special_desc
         elif heavy_desc:
-            heavies_list.append(flight_object)
+            watchlist_desc = f"{airline_name} {heavy_desc}"
         else:
-            if traffic_view == "All Movements":
-                boring_list.append(flight_object)
+            watchlist_desc = f"{airline_name} ({aircraft_code})"
+    
+    flight_object = {
+        "flight_no": flight_no,
+        "airline": airline_name,
+        "reg": reg,
+        "type": aircraft_code,
+        "watchlist_desc": watchlist_desc,
+        "special_desc": special_desc,
+        "heavy_desc": heavy_desc
+    }
+    
+    if WATCHLIST_DB.get(reg, None) is not None:
+        watchlist_matches.append(flight_object)
+    elif special_desc:
+        specials_list.append(flight_object)
+    elif heavy_desc:
+        heavies_list.append(flight_object)
+    else:
+        if traffic_view == "All Movements":
+            boring_list.append(flight_object)
 
-    # ==============================================================================
-    # 9. MAIN OUTPUT LANE RENDERER
-    # ==============================================================================
-    def render_flight_cards(flights, category_title, emoji, alert_type="info"):
-        st.markdown(f"## {emoji} {category_title} ({len(flights)})")
-        if not flights:
-            st.markdown("*No movements tracked inside this category lane.*")
-            return
-            
-        for fl in flights:
-            card_text = f"**{fl['flight_no']}** ({fl['airline']}) | Reg: **{fl['reg']}** | Type: **{fl['type']}**"
-            
-            if alert_type == "error":
-                card_text += f"\n\n🚨 **WATCHLIST TARGET FOUND:** `{fl['watchlist_desc']}`"
-                st.error(card_text)
-            elif alert_type == "info":
-                card_text += f"\n\n🎨 **SPECIALLY COOL LIVERY MATCH:** `{fl['special_desc']}`"
-                st.info(card_text)
-            elif alert_type == "success":
-                card_text += f"\n\n✈️ **Heavy Widebody:** `{fl['heavy_desc']}`"
-                st.success(card_text)
-            else:
-                card_text += f"\n\n🔹 *Regular Traffic*"
-                st.warning(card_text)
+# ==============================================================================
+# 9. MAIN OUTPUT LANE RENDERER
+# ==============================================================================
+def render_flight_cards(flights, category_title, emoji, alert_type="info"):
+    st.markdown(f"## {emoji} {category_title} ({len(flights)})")
+    if not flights:
+        st.markdown("*No movements tracked inside this category lane.*")
+        return
+        
+    for fl in flights:
+        card_text = f"**{fl['flight_no']}** ({fl['airline']}) | Reg: **{fl['reg']}** | Type: **{fl['type']}**"
+        
+        if alert_type == "error":
+            card_text += f"\n\n🚨 **WATCHLIST TARGET FOUND:** `{fl['watchlist_desc']}`"
+            st.error(card_text)
+        elif alert_type == "info":
+            card_text += f"\n\n🎨 **SPECIALLY COOL LIVERY MATCH:** `{fl['special_desc']}`"
+            st.info(card_text)
+        elif alert_type == "success":
+            card_text += f"\n\n✈️ **Heavy Widebody:** `{fl['heavy_desc']}`"
+            st.success(card_text)
+        else:
+            card_text += f"\n\n🔹 *Regular Traffic*"
+            st.warning(card_text)
 
-    # Render display blocks in sorted order
+# Render display blocks in sorted order (Always executing globally)
+if st.session_state.scan_performed:
     render_flight_cards(watchlist_matches, "watchlist plens", "🚨", alert_type="error")
     render_flight_cards(specials_list, "specially cool plens", "🎨", alert_type="info")
     render_flight_cards(heavies_list, "big plen", "⭐", alert_type="success")
