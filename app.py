@@ -18,29 +18,87 @@ if "active_flights" not in st.session_state:
 if "scan_performed" not in st.session_state:
     st.session_state.scan_performed = False
 
+
 # ==============================================================================
 # 2. MASTER HEAVIES DATABASE MAP
 # ==============================================================================
+
 HEAVIES_DB = {
+    # --- AIRBUS WIDEBODIES & FREIGHTERS ---
+    "A30B": "Airbus A300",
+    "A306": "Airbus A300-600",
+    "A30F": "Airbus A300 Freighter",
+    "A310": "Airbus A310",
     "A332": "Airbus A330-200",
     "A333": "Airbus A330-300",
+    "A337": "Airbus A330-700 Beluga XL",
+    "A338": "Airbus A330-800neo",
     "A339": "Airbus A330-900neo",
+    "A33F": "Airbus A330 Freighter",
+    "A342": "Airbus A340-200",
     "A343": "Airbus A340-300",
+    "A345": "Airbus A340-500",
     "A346": "Airbus A340-600",
     "A359": "Airbus A350-900",
     "A35K": "Airbus A350-1000",
+    "A35F": "Airbus A350 Freighter",
     "A388": "Airbus A380-800",
+    "A3ST": "Airbus A300-600ST Beluga",
+
+    # --- BOEING WIDEBODIES & FREIGHTERS ---
+    "B741": "Boeing 747-100",
+    "B742": "Boeing 747-200",
+    "B743": "Boeing 747-300",
+    "B744": "Boeing 747-400",
+    "B74D": "Boeing 747-400D (Domestic)",
+    "B74E": "Boeing 747-400 Combi",
+    "B74F": "Boeing 747 Freighter",
+    "74F":  "Boeing 747 Freighter",
+    "B748": "Boeing 747-8i",
+    "B74R": "Boeing 747-8F (Freighter)",
+    "B74S": "Boeing 747SP",
+    "BSCA": "Boeing Shuttle Carrier Aircraft (747-100SCA)",
+    "CONC": "Aérospatiale/BAC Concorde",
+    "B762": "Boeing 767-200",
+    "B763": "Boeing 767-300",
+    "B76F": "Boeing 767 Freighter",
+    "B764": "Boeing 767-400ER",
     "B772": "Boeing 777-200",
+    "B77L": "Boeing 777-200LR (Long Range)",
     "B773": "Boeing 777-300",
     "B77W": "Boeing 777-300ER",
-    "B77F": "Boeing 777F",
+    "B77F": "Boeing 777F (Freighter)",
+    "B778": "Boeing 777-8",
+    "B779": "Boeing 777-9",
     "B788": "Boeing 787-8 Dreamliner",
     "B789": "Boeing 787-9 Dreamliner",
     "B78X": "Boeing 787-10 Dreamliner",
-    "B744": "Boeing 747-400",
-    "B748": "Boeing 747-8i",
-    "B74F": "Boeing 747 Freighter",
-    "74F":  "Boeing 747 Freighter"
+
+    # --- MCDONNELL DOUGLAS & LOCKHEED CLASSICS ---
+    "DC10": "McDonnell Douglas DC-10",
+    "MD11": "McDonnell Douglas MD-11",
+    "MD1F": "McDonnell Douglas MD-11F",
+    "L101": "Lockheed L-1011 TriStar",
+
+    # --- SOVIET / RUSSIAN HEAVIES ---
+    "IL62": "Ilyushin Il-62",
+    "IL76": "Ilyushin Il-76",
+    "IL86": "Ilyushin Il-86",
+    "IL96": "Ilyushin Il-96",
+    "A124": "Antonov An-124 Ruslan",
+    "A225": "Antonov An-225 Mriya",
+    "AN22": "Antonov An-22",
+
+    # --- MILITARY HEAVY TRANSPORTS & TANKERS ---
+    "C17":  "Boeing C-17 Globemaster III",
+    "C5":   "Lockheed C-5 Galaxy",
+    "K35R": "Boeing KC-135 Stratotanker",
+    "K46A": "Boeing KC-46 Pegasus",
+    "A33MRTT": "Airbus A330 MRTT",
+    "DC10K": "McDonnell Douglas KC-10 Extender",
+    "E4B":  "Boeing E-4B Nightwatch (Doomsday Plane)",
+    "VC25": "Boeing VC-25 (Air Force One)",
+    "B52":  "Boeing B-52 Stratofortress"
 }
 
 # ==============================================================================
