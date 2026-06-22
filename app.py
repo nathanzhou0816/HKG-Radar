@@ -433,7 +433,16 @@ with st.sidebar:
         
         if submitted:
             if new_reg:
-                final_desc = new_desc if new_desc else "Custom Watchlist Tracked Target"
+                # DYNAMIC LOOKUP ON CREATION:
+                # Check if it exists in our core special liveries database first
+                if not new_desc:
+                    if new_reg in SEED_LIVERIES_DB:
+                        final_desc = SEED_LIVERIES_DB[new_reg]
+                    else:
+                        final_desc = "Custom Watchlist Tracked Target"
+                else:
+                    final_desc = new_desc
+
                 WATCHLIST_DB[new_reg] = final_desc
                 STORAGE_DATA["watchlist"] = WATCHLIST_DB
                 with open(JSON_FILE, "w", encoding="utf-8") as f:
@@ -447,7 +456,6 @@ with st.sidebar:
     if WATCHLIST_DB:
         st.markdown("#### ❌ Remove From Watchlist")
         with st.form("remove_form"):
-            # Removed format_func so only the raw, clean registration drops down
             remove_selection = st.selectbox(
                 "Select target to drop:",
                 options=list(WATCHLIST_DB.keys())
@@ -466,7 +474,13 @@ with st.sidebar:
     st.markdown("#### 📋 Current Watchlist Active Targets")
     if WATCHLIST_DB:
         for r, d in WATCHLIST_DB.items():
-            st.markdown(f"- **`{r}`**: *{d}*")
+            # SIDEBAR LIVE FALLBACK:
+            # If the stored file has an old generic placeholder, fix it dynamically on screen
+            display_desc = d
+            if d == "Custom Watchlist Tracked Target" and r in SEED_LIVERIES_DB:
+                display_desc = SEED_LIVERIES_DB[r]
+                
+            st.markdown(f"- **`{r}`**: *{display_desc}*")
     else:
         st.caption("No custom registrations tracked on sidebar watchlist.")
 
@@ -476,7 +490,6 @@ with st.sidebar:
         options=["All Movements", "Watchlist / Heavies / Specials Only"],
         index=0
     )
-
 # ==============================================================================
 # 6. CORE LAYOUT INPUT HUB
 # ==============================================================================
