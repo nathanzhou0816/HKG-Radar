@@ -528,9 +528,8 @@ if st.button("Scan Current Movements"):
         st.session_state.scan_performed = True
 
 # ==============================================================================
-# 8. STRUCTURAL SORTING LAYER
-# ==============================================================================
-if st.session_state.scan_performed:
+    # 8. STRUCTURAL SORTING LAYER
+    # ==============================================================================
     watchlist_matches = []
     specials_list = []
     heavies_list = []
@@ -553,6 +552,17 @@ if st.session_state.scan_performed:
         special_desc = SPECIALS_DB.get(reg, None)
         heavy_desc = HEAVIES_DB.get(aircraft_code, None)
         
+        # --- DYNAMIC WATCHLIST DETAIL RESOLUTION ---
+        # If a custom target was added without explicit notes, look up its real 
+        # details in the specials or heavies database rather than showing the default fallback.
+        if watchlist_desc == "Custom Watchlist Tracked Target":
+            if special_desc:
+                watchlist_desc = special_desc
+            elif heavy_desc:
+                watchlist_desc = f"{airline_name} {heavy_desc}"
+            else:
+                watchlist_desc = f"{airline_name} ({aircraft_code})"
+        
         flight_object = {
             "flight_no": flight_no,
             "airline": airline_name,
@@ -563,7 +573,7 @@ if st.session_state.scan_performed:
             "heavy_desc": heavy_desc
         }
         
-        if watchlist_desc:
+        if WATCHLIST_DB.get(reg, None) is not None:
             watchlist_matches.append(flight_object)
         elif special_desc:
             specials_list.append(flight_object)
