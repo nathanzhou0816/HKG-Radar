@@ -228,18 +228,18 @@ SEED_LIVERIES_DB = {
     "JA861J": "Japan Airlines Boeing 787-9 - oneworld",
     "JA08XJ": "Japan Airlines Airbus A350-900 - Dream Sho Jet (Shohei Ohtani) (sticker)",
     "JA869J": "Japan Airlines Boeing 787-9 - oneworld",
-    "JA339J": "Japan Airlines Boeing 737-800 - Tokyo DisneySea - Sparkling Jubilee"
+    "JA339J": "Japan Airlines Boeing 737-800 - Tokyo DisneySea - Sparkling Jubilee",
 
     # --- Cargolux ---
-    "LX-VCC": "Cargolux Boeing 747-8i - 50th Anniversary Livery"
-    "LX-NCL": "Cargolux Boeing 747-400 - Retro Livery"
-    "LX-VCF": "Cargolux Boeing 747-8i - Not Without My Mask Livery"
+    "LX-VCC": "Cargolux Boeing 747-8i - 50th Anniversary Livery",
+    "LX-NCL": "Cargolux Boeing 747-400 - Retro Livery",
+    "LX-VCF": "Cargolux Boeing 747-8i - Not Without My Mask Livery",
 
     # --- Lufthansa ---
-    "D-ABPU": "Lufthansa Boeing 787-9 - 100th Anniversary Livery"
-    "D-ABYN": "Lufthansa Boeing 747-8i - 100th Anniversary Livery"
-    "D-AIXL": "Lufthamsa Airbus A350-900 - 100th Anniversary Livery"
-    "D-AIMH": "Lufthansa Airbus A380-800 - 100th Anniversary Livery"
+    "D-ABPU": "Lufthansa Boeing 787-9 - 100th Anniversary Livery",
+    "D-ABYN": "Lufthansa Boeing 747-8i - 100th Anniversary Livery",
+    "D-AIXL": "Lufthamsa Airbus A350-900 - 100th Anniversary Livery",
+    "D-AIMH": "Lufthansa Airbus A380-800 - 100th Anniversary Livery",
     "D-ABYT": "Lufthansa Boeing 747-8i - Retro Livery"
 }
 
